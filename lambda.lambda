@@ -1,0 +1,16 @@
+// Combinators
+$ID: (x.x)
+$OMEGA: ((x.xx) (x.xx))
+
+// Boolean values
+$TRUE: (t.f.t)
+$FALSE: (t.$ID)
+
+// Logical operators
+$AND: (b1.b2.(b1 b2 $FALSE))
+$OR: (b1.b2.(b1 $TRUE b2))
+$NOT: (b.(b $FALSE $TRUE))
+$XOR: (b1.b2.(b1 ($NOT b2) b2))
+
+// Church numerals
+$ZERO: $FALSE
