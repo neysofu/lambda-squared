@@ -1,16 +1,45 @@
+/** Style conventions
+ *  -----------------
+ *
+ *  t ::=
+ *   - x
+ *     // Variable
+ *   - (x. t)
+ *     // Abstraction
+ *   - (t t)
+ *     // Application
+ */
+
+
 // Combinators
-$ID: (x.x)
-$OMEGA: ((x.xx) (x.xx))
+ID: (x. x)
+CLONE: (x. x x)
+FORK-BOMB: (CLONE CLONE CLONE)
 
-// Boolean values
-$TRUE: (t.f.t)
-$FALSE: (t.$ID)
 
-// Logical operators
-$AND: (b1.b2.(b1 b2 $FALSE))
-$OR: (b1.b2.(b1 $TRUE b2))
-$NOT: (b.(b $FALSE $TRUE))
-$XOR: (b1.b2.(b1 ($NOT b2) b2))
+// Algebraic data structures
+N-TUPLE: (x. ID x)
+
+0-TUPLE: UNIT: ID
+1-TUPLE: (N-TUPLE 0-TUPLE)
+2-TUPLE: (N-TUPLE 1-TUPLE)
+3-TUPLE: (N-TUPLE 2-TUPLE)
+
+
+// Boolean logic
+TRUE:  (xy. x)
+FALSE: (xy. y)
+
+BOOL-NOT: (p. p FALSE TRUE)
+BOOL-AND: (pq. p q FALSE)
+BOOL-OR:  (pq. p TRUE q)
+BOOL-XOR: (pq. p (NOT q) q)
+
+
+// While
+FIXED-POINT-COMBINATOR: (f. (x. f (y. x x y)) (x. f (y. x x y)))
 
 // Church numerals
 $ZERO: $FALSE
+$SUCCESSOR: (nsz. s (n s z))
+
