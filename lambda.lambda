@@ -1,45 +1,51 @@
-/** Style conventions
- *  -----------------
- *
- *  t ::=
- *   - x
- *     // Variable
- *   - (x. t)
- *     // Abstraction
- *   - (t t)
- *     // Application
- */
+$ID: (x => x)
+$Y-COMBINATOR: (f => (x => f (x x)) (x => f (x x)))
 
 
-// Combinators
-ID: (x. x)
-CLONE: (x. x x)
-FORK-BOMB: (CLONE CLONE CLONE)
+$TUPLE: (a => b => f => f a b)
+
+$_1: (t => t $FALSE)
+$_2: (t => t $TRUE)
 
 
-// Algebraic data structures
-N-TUPLE: (x. ID x)
+$TRUE:  (x => y => x)
+$FALSE: (x => y => y)
 
-0-TUPLE: UNIT: ID
-1-TUPLE: (N-TUPLE 0-TUPLE)
-2-TUPLE: (N-TUPLE 1-TUPLE)
-3-TUPLE: (N-TUPLE 2-TUPLE)
-
-
-// Boolean logic
-TRUE:  (xy. x)
-FALSE: (xy. y)
-
-BOOL-NOT: (p. p FALSE TRUE)
-BOOL-AND: (pq. p q FALSE)
-BOOL-OR:  (pq. p TRUE q)
-BOOL-XOR: (pq. p (NOT q) q)
+$NOT: (p => p $FALSE $TRUE)
+$AND: (p => q => p q $FALSE)
+$OR:  (p => q => p $TRUE q)
+$XOR: (p => q => p ($NOT q) q)
 
 
-// While
-FIXED-POINT-COMBINATOR: (f. (x. f (y. x x y)) (x. f (y. x x y)))
+$INT-0: (f => x => x)
+$INT-1: ($SUCC $INT-0)
 
-// Church numerals
-$ZERO: $FALSE
-$SUCCESSOR: (nsz. s (n s z))
+$SUCC: (n => f => x => f (n f x))
+$PLUS: (m => n => f => x => m f (n f x))
+$MULT: (m => n => f => m (n f))
 
+$PRED: (n => f => x => n (g => h => h (g f)) (u => x) (u => u))
+$MINUS: (m => n => (n $PRED) m)
+
+
+$LAMBDA-VARIABLE: (a => b => c => a)
+$LAMBDA-VARIABLE-BUILDER: (n => $TUPLE $LAMBDA-VARIABLE n)
+
+$LAMBDA-ABSTRACTION: (a => b => c => b)
+$LAMBDA-ABSTRACTION_BUILDER: (t => $TUPLE $LAMBDA-ABSTRACTION t)
+
+$LAMBDA-APPLICATION: (a => b => c => c)
+$LAMBDA-APPLICATION-BUILDER: (x => y => $TUPLE $LAMBDA-APPLICATION ($TUPLE x y))
+
+
+$ONES: (f => n => p => p (f ($SUCC n)) ($LAMBDA-VARIABLE-BUILDER n))
+
+
+$REDUCE: (f => e => x => n => ($_1 e)
+	# Variable
+	(($EQ n ($_2 e)) x e)
+	# Abstraction
+	($LAMBDA-ABSTRACTION-BUILDER (f ($_2 e) x ($SUCC n)))
+	# Application
+	($LAMBDA-APPLICATION-BUILDER (f ($_1 ($_2 e)) x n) (f ($_2 ($_2 e)) x n))
+)
