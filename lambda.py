@@ -56,9 +56,7 @@ PREC = lambda n: lambda f: lambda x: (n
     (lambda u: x)
     (ID))
 
-ADD = lambda m: lambda n: n (SUCC) (m)
 SUB = lambda m: lambda n: n (PREC) (m)
-TIMES = lambda m: lambda n: n (PLUS (n))
 
 ZERO = FALSE
 ONE = SUCC (ZERO)
@@ -69,7 +67,7 @@ THREE = SUCC (TWO)
 IS_ZERO = lambda n: n (lambda x: FALSE) (TRUE)
 # LEQ(n,m) = n <= m
 LEQ = lambda m: lambda n: IS_ZERO (SUB (m) (n))
-# EQ(n,m) = n ==m
+# EQ(n,m) = n == m
 EQ = lambda m: lambda n: AND (LEQ (m) (n)) (LEQ (n) (m))
 
 # Lambda terms
@@ -83,9 +81,8 @@ LAMBDA_VARIABLE_BUILDER = lambda n: TUPLE (ENUM_3_1) (n)
 LAMBDA_ABSTRACTION_BUILDER = lambda t: TUPLE (ENUM_3_2) (t)
 LAMBDA_APPLICATION_BUILDER = lambda x: lambda y: TUPLE (ENUM_3_3) (TUPLE (x) (y))
 
-# Lambda lazy reduction
-# =====================
-
+# λ-calculus call-by-name reduction
+# =================================
 
 # The arguments are:
 #   f   a self-reference dummy function for the Y combinator.
@@ -110,20 +107,38 @@ REDUCE = Y (lambda f: lambda e: lambda x: lambda n: _1ST (e)
         (f (_2ND (_2ND (e))) (x) (n)))) (ID))
 
 APPLY = Y (lambda f: lambda e: _1ST (e)
-    # We only reduce applications.
+    # We only reduce applications. (This is the 'call-by-name reduction
+    # strategy'.)
     (LAMBDA_VARIABLE_BUILDER (_2ND (e)))
     (LAMBDA_ABSTRACTION_BUILDER (_2ND (e)))
     (REDUCE (_1ST (e)) (_2ND (e)) (ONE)))
 
-# TODO APPLY
+# Binary λ-calculus parser and interpreter
+# ========================================
 """
-BINARY_LAMBDA = lambda p: p (
-    # p == 1
-    (lambda p1: Y_COMBINATOR (lambda f: lambda n:))
-    # p == 0
-    (lambda p1: p1
-        # pq == 01
-        (lambda p2:)
-        # pq == 00
+PARSE_LAMBDA = Y (lambda f: lambda b: b (
+    # If p == 1, we pass control over to PARSER_DE_BRUIJN_INDEX.
+    (PARSE_DE_BRUIJN_INDEX (ONE))
+    # Otherwise, we distinguish between abstraction (00) and application (01).
+    (lambda b1: b1
+        # 01
+        (lambda b2:)
+        # 00
     )
-)"""
+))
+
+# Parse a de Bruijn index, for example:
+#   1111110 => $6
+#   10 => $1
+#
+# In general,
+#   1{n}0 => $n
+PARSE_DE_BRUIJN_INDEX = Y (lambda f: lambda n: lambda b: b
+    (lambda b1: f (SUCC (n)) (b1))
+    (LAMBDA_VARIABLE_BUILDER (n)))
+
+PARSE_ABSTRACTION = (
+    (lambda b: LAMBDA_ABSTRACTION_BUILDER () ))
+
+PARSE_APPLICATION = LAMBDA_APPLICATION_BUILDER (PARSE_LAMBDA)
+"""
