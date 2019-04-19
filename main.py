@@ -24,11 +24,13 @@ Y = lambda f: (
 
 ID = NONE = lambda x: x
 
-# Boolean values as ternary operators. E.g.
+# Church Boolean values work as ternary operators; e.g.
 #   >>> TRUE ('foo') ('bar')
 #   'foo'
 #   >>> (AND (TRUE) (FALSE)) ('foo') ('bar')
 #   'bar'
+# See:
+# - https://en.wikipedia.org/wiki/Church_encoding#Church_Booleans
 TRUE  = lambda p: lambda q: p
 FALSE = lambda p: lambda q: q
 NOT = lambda p: p (FALSE) (TRUE)
@@ -42,6 +44,8 @@ OR  = lambda p: lambda q: p (TRUE) (q)
 #   >>> TUPLE ('foo') ('bar') (FALSE)
 #   'bar'
 # You can view it as a ternary operator with postfix notation.
+# See:
+# - https://en.wikipedia.org/wiki/Cons#Functional_Implementation
 TUPLE = lambda x: lambda y: lambda f: f (x) (y)
 
 # Church numerals. These will be useful for defining variables.
@@ -62,19 +66,24 @@ DECR = (
 
 MINUS = lambda m: lambda n: n (DECR) (m)
 ZERO = FALSE
+ONE = INCR (ZERO)
 IS_ZERO = lambda n: n (lambda x: FALSE) (TRUE)
 LEQ = lambda x: lambda y: IS_ZERO (MINUS (x) (y))
 EQ  = lambda x: lambda y: AND (LEQ (x) (y)) (LEQ (y) (x))
 
-# Enumeration types.
+# 'VARIABLE', 'ABSTRACTION', and 'APPLICATION' are enums.
 VARIABLE    = CHAR_0   = lambda a: lambda b: lambda c: a
 ABSTRACTION = CHAR_1   = lambda a: lambda b: lambda c: b
 APPLICATION = CHAR_EOF = lambda a: lambda b: lambda c: c
 CHAR_IS_EOF = lambda char: char (FALSE) (FALSE) (TRUE)
-
 BUILD_VARIABLE    = lambda i: TUPLE (VARIABLE) (i)
 BUILD_ABSTRACTION = lambda x: TUPLE (ABSTRACTION) (x)
 BUILD_APPLICATION = lambda x: lambda y: TUPLE (APPLICATION) (TUPLE (x) (y))
+
+# A fixed-point combinator for 'CHAR_0' and 'CHAR_0'. Useful for entering
+# nonrecoverable error states during parsing; it finally returns 'FALSE' on
+# EOF.
+FALSE_ON_EOF = Y (lambda f: lambda c: CHAR_IS_EOF (c) (FALSE) (f))
 
 # It takes in a stream of characters until EOF is reached, then returns 'TRUE'
 # if the input was a valid BLC program, 'FALSE' otherwise. Empty programs are
@@ -90,7 +99,7 @@ CHECK_SYNTAX = Y (
     lambda count:
     lambda char:
     IS_ZERO (count)
-        (CHAR_IS_EOF (char))
+        (CHAR_IS_EOF (char) (TRUE) (FALSE_ON_EOF))
         (char
             (lambda char: char
                 (f (count))
@@ -100,34 +109,36 @@ CHECK_SYNTAX = Y (
                 lambda char:
                 char (f (DECR (count))) (g) (FALSE)))
             (FALSE))
-) (INCR (ZERO))
+) (ONE)
 
 # Accepts 1s as arguments until a 0 is met, then it finally returns the
 # variable index.
-DE_BRUIJN_INDEX_PARSER = Y (
+VARIABLE_PARSER = Y (
     lambda f:
-    lambda current_index:
+    lambda count:
+    lambda callback:
     lambda char:
     char
-        (current_index)
-        (f (INCR (current_index)))
+        (callback (BUILD_VARIABLE (count)))
+        (f (INCR (count)) (callback))
         (NONE)
 ) (ZERO)
 
-# Takes in a stream of characters and builds an internal representation of the
-# program that allows easy evaluation. Finally, when it reads an EOF character,
-# it returns the final representation, ready to be feed into 'REDUCTION'.
+# Accepts 'CHAR_0' and 'CHAR_0' as arguments and finally returns the input
+# program in a format that is easily processable to reduce.
+# When a variable is met, it returns 'backtrace (expression)'
 PARSER = Y (
     lambda f:
+    lambda backtrace:
     lambda char:
     char
         (lambda char: char
-            (TUPLE (ABSTRACTION) (f))
-            (TUPLE (APPLICATION) (TUPLE (f) (f)))
+            (f (lambda x: backtrace (BUILD_ABSTRACTION (x))))
+            (f (lambda x: f (lambda y: backtrace (BUILD_APPLICATION (x) (y)))))
             (NONE))
-        (lambda char: TUPLE (VARIABLE) (DE_BRUIJN_INDEX_PARSER (char)))
+        (VARIABLE_PARSER (backtrace))
         (NONE)
-)
+) (ID)
 
 # It effectively runs a parsed BLC expression. Starting from the outermost
 # application, variables are matched with the bound variable and replaced
@@ -181,19 +192,17 @@ EXPRESSION_TO_STRING = Y (
 
 # Reads characters until EOF and returns its internal state. Then prints its response.
 
-INTERPRETER_STEP = (
+INTERPRETER = Y (
     lambda f:
-    lambda syntax_check:
+    lambda check_syntax:
     lambda parser:
-    lambda char: CHAR_IS_EOF
-        (f (syntax_check (char)) (parser (char)))
-        (syntax_check
-            (char)
-            (RUN_BLC (parser (char)))
+    lambda char:
+    CHAR_IS_EOF
+        (f (check_syntax (char)) (parser (char)))
+        (check_syntax (char)
+            (parser (char))
             ((lambda _: print('<invalid program>') (NONE))))
-)
-
-INTERPRETER = Y (INTERPRETER_STEP) (CHECK_SYNTAX) (PARSER)
+) (CHECK_SYNTAX) (PARSER)
 
 # Takes in a stream of bits and outputs a stream of lambda terms.
 # 1. Transform 0s and 1s into lambda booleans. This step requires operating on
@@ -201,6 +210,13 @@ INTERPRETER = Y (INTERPRETER_STEP) (CHECK_SYNTAX) (PARSER)
 #    do it in normal Python.
 # 2. Parse lambda booleans into tokens (00, 01, or 1{n}0).
 # 3. Run.
+
+class TestFalseOnEOF(unittest.TestCase):
+
+    def test_basic(self):
+        self.assertEqual(FALSE, FALSE_ON_EOF (CHAR_EOF))
+        self.assertEqual(FALSE, FALSE_ON_EOF (CHAR_0) (CHAR_1) (CHAR_EOF))
+        self.assertEqual(FALSE, FALSE_ON_EOF (CHAR_1) (CHAR_EOF))
 
 class TestChurchNumerals(unittest.TestCase):
 
@@ -234,10 +250,19 @@ class TestSyntax(unittest.TestCase):
     def test_empty_program(self):
         self.assertEqual(FALSE, CHECK_SYNTAX (CHAR_EOF))
 
-    def test_invalid_programs(self):
+    def test_unbalanced_programs(self):
         self.assertEqual(FALSE, CHECK_SYNTAX (CHAR_0) (CHAR_0) (CHAR_EOF))
+        self.assertEqual(FALSE, CHECK_SYNTAX (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_1) (CHAR_1) (CHAR_0) (CHAR_EOF))
+
+    def test_programs_with_incomplete_tokens(self):
         self.assertEqual(FALSE, CHECK_SYNTAX (CHAR_0) (CHAR_EOF))
+        self.assertEqual(FALSE, CHECK_SYNTAX (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_EOF))
         self.assertEqual(FALSE, CHECK_SYNTAX (CHAR_1) (CHAR_EOF))
+        self.assertEqual(FALSE, CHECK_SYNTAX (CHAR_1) (CHAR_0) (CHAR_0) (CHAR_EOF))
+        self.assertEqual(FALSE, CHECK_SYNTAX (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_EOF))
+
+    def test_programs_with_wrong_token_order(self):
+        self.assertEqual(FALSE, CHECK_SYNTAX (CHAR_1) (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_EOF))
 
     def test_valid_programs(self):
         self.assertEqual(TRUE, CHECK_SYNTAX (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_EOF))
@@ -252,12 +277,24 @@ class TestSyntax(unittest.TestCase):
 class TestParser(unittest.TestCase):
 
     def test_parse_variable(self):
+        var = PARSER (CHAR_1) (CHAR_0)
+        self.assertEqual('10', EXPRESSION_TO_STRING (var))
+        var = PARSER (CHAR_1) (CHAR_1) (CHAR_0)
+        self.assertEqual('110', EXPRESSION_TO_STRING (var))
+
+    def test_parse_abstraction(self):
         var = PARSER (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_0)
         self.assertEqual('0010', EXPRESSION_TO_STRING (var))
-        #var = PARSER (CHAR_1) (CHAR_0)
-        #self.assertEqual('10', EXPRESSION_TO_STRING (var))
-        #var = PARSER (CHAR_1) (CHAR_1) (CHAR_0)
-        #self.assertEqual('110', EXPRESSION_TO_STRING (var))
+        var = PARSER (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_0)
+        self.assertEqual('000010', EXPRESSION_TO_STRING (var))
+        var = PARSER (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_0)
+        self.assertEqual('000000110', EXPRESSION_TO_STRING (var))
+
+    def test_parse_application(self):
+        var = PARSER (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_0)
+        self.assertEqual('011010', EXPRESSION_TO_STRING (var))
+        var = PARSER (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_0)
+        self.assertEqual('010011010', EXPRESSION_TO_STRING (var))
 
 if __name__ == '__main__':
     print('A binary lambda calculus interpreter by Filippo Costa')
