@@ -144,28 +144,27 @@ PARSER = Y (
 # application, variables are matched with the bound variable and replaced
 # accordingly. This reduction strategy is known as 'call by name'.
 #
+# - If it's a variable, then leave it as it is.
+# - If it's an abstraction, then replace the bound term inside the body. At the
+#   first call this doesn't happen!
+# - If it's an application, then the bound term becomes the argument.
+#
 # Readings on lambda reduction:
 # - 'Types and Programming Languages', by Thomas Pierce
 # - http://www.cs.yale.edu/homes/hudak/CS201S08/lambda.pdf
 # - https://en.wikipedia.org/wiki/Reduction_strategy_(lambda_calculus)
-REDUCTION = (
-    lambda f:
-    lambda expression:
-    lambda term:
-    expression
-        (TRUE)
-        (lambda variable: variable)
-        (lambda abstraction: TUPLE
-            (ABSTRACTION)
-            # We increment the counter 'n' and keep searching for terms bound to 'x'.
-            (f (expression (FALSE)) (term) (INCR (n))))
-        (lambda application: TUPLE
-            (APPLICATION)
-            # We reduce both terms and then the second is applied to the first.
-            (f (_1ST (expression (FALSE))) (x) (n))
-            # The dummy argument g=ID is just to avoid strict evaluation.
-            (f (_2ND (_2ND (e))) (x) (n)))
-)
+EXPRESSION_TO_NORMAL_FORM = ID #Y (
+#    lambda f:
+#    lambda current_index:
+#    lambda term:
+#    lambda expression:
+#    expression (TRUE)
+#        (ID)
+#        (lambda abstraction: BUILD_ABSTRACTION
+#            # We increment the counter 'n' and keep searching for terms bound to 'x'.
+#            (f (expression (FALSE)) (INCR (current_index)) (term)))
+#        (lambda application: f (INCR (current_index)) (application (FALSE) (FALSE)) (application (FALSE) (TRUE)))
+#) (ZERO) (NONE)
 
 VARIABLE_TO_STRING = Y (
     lambda f:
@@ -200,7 +199,7 @@ INTERPRETER = Y (
     CHAR_IS_EOF (char)
         (lambda _: check_syntax (char)
             # TODO: reduce to normal form.
-            (lambda _: EXPRESSION_TO_STRING (parser))
+            (lambda _: EXPRESSION_TO_STRING (EXPRESSION_TO_NORMAL_FORM (parser)))
             (lambda _: '<invalid program>')
             (NONE))
         (lambda _: f (check_syntax (char)) (parser (char)))
