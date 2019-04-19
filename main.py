@@ -197,11 +197,14 @@ INTERPRETER = Y (
     lambda check_syntax:
     lambda parser:
     lambda char:
-    CHAR_IS_EOF
-        (f (check_syntax (char)) (parser (char)))
-        (check_syntax (char)
-            (parser (char))
-            ((lambda _: print('<invalid program>') (NONE))))
+    CHAR_IS_EOF (char)
+        (lambda _: check_syntax (char)
+            # TODO: reduce to normal form.
+            (lambda _: EXPRESSION_TO_STRING (parser))
+            (lambda _: '<invalid program>')
+            (NONE))
+        (lambda _: f (check_syntax (char)) (parser (char)))
+        (NONE)
 ) (CHECK_SYNTAX) (PARSER)
 
 # Takes in a stream of bits and outputs a stream of lambda terms.
@@ -295,6 +298,20 @@ class TestParser(unittest.TestCase):
         self.assertEqual('011010', EXPRESSION_TO_STRING (var))
         var = PARSER (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_0)
         self.assertEqual('010011010', EXPRESSION_TO_STRING (var))
+        var = PARSER (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_0)
+        self.assertEqual('01011101010', EXPRESSION_TO_STRING (var))
+
+def run_string(string):
+    state = INTERPRETER
+    for c in source:
+        if c == '0':
+            state = state(CHAR_0)
+        elif c == '1':
+            state = state(CHAR_1)
+        else:
+            state = lambda _: '<invalid input>'
+            break
+    return state(CHAR_EOF)
 
 if __name__ == '__main__':
     print('A binary lambda calculus interpreter by Filippo Costa')
@@ -313,10 +330,6 @@ if __name__ == '__main__':
             eval(source.split(' ', 1)[1])
             continue
         else:
-            state = INTERPRETER
-            for c in source:
-                state = state(CHAR_1 if c == '1' else CHAR_0)
-            print('Normal form: ')
-            state = state(CHAR_EOF)
+            print(run_string(source))
     # A MIT/GNU Scheme tradition :)
     print('Moriturus te salutat.')
