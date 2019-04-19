@@ -153,7 +153,7 @@ PARSER = Y (
 # - 'Types and Programming Languages', by Thomas Pierce
 # - http://www.cs.yale.edu/homes/hudak/CS201S08/lambda.pdf
 # - https://en.wikipedia.org/wiki/Reduction_strategy_(lambda_calculus)
-EXPRESSION_TO_NORMAL_FORM = ID #Y (
+TERM_TO_NORMAL_FORM = ID #Y (
 #    lambda f:
 #    lambda current_index:
 #    lambda term:
@@ -175,7 +175,7 @@ VARIABLE_TO_STRING = Y (
     (NONE)
 )
 
-EXPRESSION_TO_STRING = Y (
+TERM_TO_STRING = Y (
     lambda f:
     lambda expression:
     # Switch-case the expression type
@@ -199,7 +199,7 @@ INTERPRETER = Y (
     CHAR_IS_EOF (char)
         (lambda _: check_syntax (char)
             # TODO: reduce to normal form.
-            (lambda _: EXPRESSION_TO_STRING (EXPRESSION_TO_NORMAL_FORM (parser)))
+            (lambda _: TERM_TO_STRING (TERM_TO_NORMAL_FORM (parser)))
             (lambda _: '<invalid program>')
             (NONE))
         (lambda _: f (check_syntax (char)) (parser (char)))
@@ -237,14 +237,14 @@ class TestStringify(unittest.TestCase):
 
     def test_variable_to_string(self):
         self.assertEqual('10', VARIABLE_TO_STRING (ZERO))
-        self.assertEqual('110', EXPRESSION_TO_STRING (BUILD_VARIABLE (INCR (ZERO))))
+        self.assertEqual('110', TERM_TO_STRING (BUILD_VARIABLE (INCR (ZERO))))
 
     def test_abstraction_to_string(self):
-        self.assertEqual('0010', EXPRESSION_TO_STRING (BUILD_ABSTRACTION (BUILD_VARIABLE (ZERO))))
+        self.assertEqual('0010', TERM_TO_STRING (BUILD_ABSTRACTION (BUILD_VARIABLE (ZERO))))
 
     def test_application_to_string(self):
         self.assertEqual('0110110',
-                         EXPRESSION_TO_STRING
+                         TERM_TO_STRING
                          (BUILD_APPLICATION (BUILD_VARIABLE (ZERO)) (BUILD_VARIABLE (INCR (ZERO)))))
 
 class TestSyntax(unittest.TestCase):
@@ -280,25 +280,25 @@ class TestParser(unittest.TestCase):
 
     def test_parse_variable(self):
         var = PARSER (CHAR_1) (CHAR_0)
-        self.assertEqual('10', EXPRESSION_TO_STRING (var))
+        self.assertEqual('10', TERM_TO_STRING (var))
         var = PARSER (CHAR_1) (CHAR_1) (CHAR_0)
-        self.assertEqual('110', EXPRESSION_TO_STRING (var))
+        self.assertEqual('110', TERM_TO_STRING (var))
 
     def test_parse_abstraction(self):
         var = PARSER (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_0)
-        self.assertEqual('0010', EXPRESSION_TO_STRING (var))
+        self.assertEqual('0010', TERM_TO_STRING (var))
         var = PARSER (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_0)
-        self.assertEqual('000010', EXPRESSION_TO_STRING (var))
+        self.assertEqual('000010', TERM_TO_STRING (var))
         var = PARSER (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_0)
-        self.assertEqual('000000110', EXPRESSION_TO_STRING (var))
+        self.assertEqual('000000110', TERM_TO_STRING (var))
 
     def test_parse_application(self):
         var = PARSER (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_0)
-        self.assertEqual('011010', EXPRESSION_TO_STRING (var))
+        self.assertEqual('011010', TERM_TO_STRING (var))
         var = PARSER (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_0)
-        self.assertEqual('010011010', EXPRESSION_TO_STRING (var))
+        self.assertEqual('010011010', TERM_TO_STRING (var))
         var = PARSER (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_1) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_0) (CHAR_1) (CHAR_0)
-        self.assertEqual('01011101010', EXPRESSION_TO_STRING (var))
+        self.assertEqual('01011101010', TERM_TO_STRING (var))
 
 def run_string(string):
     state = INTERPRETER
