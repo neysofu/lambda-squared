@@ -140,31 +140,41 @@ PARSER = Y (
         (NONE)
 ) (ID)
 
+SEARCH_AND_REPLACE_VARIABLE_IN_TERM = Y (
+    lambda f:
+    lambda i:
+    lambda argument:
+    lambda term: term (TRUE)
+        (lambda _: EQ (i) (term (FALSE)) (argument) (term))
+        (lambda _: BUILD_ABSTRACTION (f (INCR (i)) (argument) (term (FALSE))))
+        (lambda _: BUILD_APPLICATION
+            (f (i) (argument) (term (FALSE) (TRUE)))
+            (f (i) (argument) (term (FALSE) (FALSE))))
+        (NONE)
+) (ZERO)
+
 # It effectively runs a parsed BLC expression. Starting from the outermost
 # application, variables are matched with the bound variable and replaced
 # accordingly. This reduction strategy is known as 'call by name'.
-#
-# - If it's a variable, then leave it as it is.
-# - If it's an abstraction, then replace the bound term inside the body. At the
-#   first call this doesn't happen!
-# - If it's an application, then the bound term becomes the argument.
 #
 # Readings on lambda reduction:
 # - 'Types and Programming Languages', by Thomas Pierce
 # - http://www.cs.yale.edu/homes/hudak/CS201S08/lambda.pdf
 # - https://en.wikipedia.org/wiki/Reduction_strategy_(lambda_calculus)
-TERM_TO_NORMAL_FORM = ID #Y (
-#    lambda f:
-#    lambda current_index:
-#    lambda term:
-#    lambda expression:
-#    expression (TRUE)
-#        (ID)
-#        (lambda abstraction: BUILD_ABSTRACTION
-#            # We increment the counter 'n' and keep searching for terms bound to 'x'.
-#            (f (expression (FALSE)) (INCR (current_index)) (term)))
-#        (lambda application: f (INCR (current_index)) (application (FALSE) (FALSE)) (application (FALSE) (TRUE)))
-#) (ZERO) (NONE)
+TERM_TO_NORMAL_FORM = Y (
+    lambda f:
+    lambda term: term (TRUE)
+        (ID)
+        (ID)
+        (lambda _: term (FALSE) (TRUE) (TRUE)
+            (ID)
+            (lambda _: f (SEARCH_AND_REPLACE_VARIABLE_IN_TERM
+                (term (FALSE) (FALSE))
+                (term (FALSE) (TRUE) (FALSE))))
+            (lambda _: f (BUILD_APPLICATION (f (term (FALSE) (TRUE))) (term (FALSE) (FALSE))))
+            (term))
+        (term)
+)
 
 VARIABLE_TO_STRING = Y (
     lambda f:
@@ -198,7 +208,6 @@ INTERPRETER = Y (
     lambda char:
     CHAR_IS_EOF (char)
         (lambda _: check_syntax (char)
-            # TODO: reduce to normal form.
             (lambda _: TERM_TO_STRING (TERM_TO_NORMAL_FORM (parser)))
             (lambda _: '<invalid program>')
             (NONE))
